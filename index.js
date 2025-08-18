@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-
+const logger = require('./logger');
 const PORT = process.env.PORT || 3008;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const { fetchTrainsData } = require('./pkp');
@@ -78,22 +78,46 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/`);
-  console.log(`Serving static files from: ${PUBLIC_DIR}`);
+  logger.log(`Server running at http://localhost:${PORT}/`);
+  logger.log(`Serving static files from: ${PUBLIC_DIR}`);
 });
 
 const fifteenMinutesMs = 1000 * 60 * 15;
 
+
+async function fetchDataWithRetry() {
+  const retries = 3;
+  let trainsFetchedCount = null;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      logger.log(`Fetching trains data (attempt ${i + 1} of ${retries})`);
+      trainsFetchedCount = await fetchTrainsData();
+
+    } catch (error) {
+      logger.error(`Error fetching trains data: ${error}`);
+    }
+
+    if (trainsFetchedCount && trainsFetchedCount > 0) {
+      return trainsFetchedCount;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+
+  return trainsFetchedCount;
+}
+
 setInterval(() => {
-  fetchTrainsData().then(processedTrainsCount => {
-    console.log('Processed trains count:', processedTrainsCount)
+  fetchDataWithRetry().then(processedTrainsCount => {
+    logger.log('Processed trains count:', processedTrainsCount)
   }).catch(error => {
-    console.error('Error fetching trains data:', error)
+    logger.error('Error fetching trains data:', error)
   });
 }, fifteenMinutesMs);
 
-fetchTrainsData().then(processedTrainsCount => {
-  console.log('Processed trains count:', processedTrainsCount)
+fetchDataWithRetry().then(processedTrainsCount => {
+  logger.log('Processed trains count:', processedTrainsCount)
 }).catch(error => {
-  console.error('Error fetching trains data:', error)
+  logger.error('Error fetching trains data:', error)
 });

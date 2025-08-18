@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const logger = require('./logger');
 
 const readData = () => {
   try {
@@ -27,14 +28,14 @@ async function processTrains(anonymizedTrainsArray) {
     timeStamp: timeStamp,
   }))
 
-  console.log('Trains array:', trainsArray.length)
+  logger.log('Trains array:', trainsArray.length)
 
 
   const uniqueTrains = trainsArray.filter((train, index, self) =>
     index === self.findIndex((t) => t.id === train.id)
   )
 
-  console.log('Unique trains:', uniqueTrains.length)
+  logger.log('Unique trains:', uniqueTrains.length)
 
   let delay0 = 0;
   let delay1 = 0
@@ -56,11 +57,11 @@ async function processTrains(anonymizedTrainsArray) {
 
   const delayPercent = (delay1 + delay2) / uniqueTrains.length * 100;
 
-  console.log('Delay0:', delay0)
-  console.log('Delay1:', delay1)
-  console.log('Delay2:', delay2)
+  logger.log('Delay0:', delay0)
+  logger.log('Delay1:', delay1)
+  logger.log('Delay2:', delay2)
 
-  console.log('Delay percent:', delayPercent)
+  logger.log('Delay percent:', delayPercent)
 
   const data = readData();
 
@@ -96,7 +97,7 @@ async function fetchTrainsData() {
   let processedTrainsCount = null
 
   const timeout = setTimeout(async () => {
-    console.log('Timeout')
+    logger.log('Timeout')
 
     await browser.close();
 
@@ -104,7 +105,7 @@ async function fetchTrainsData() {
   }, 20000);
 
   client.on('Network.webSocketFrameReceived', async ({ response }) => {
-    console.log('Network.webSocketFrameReceived', response.payloadData.length)
+    logger.log('Network.webSocketFrameReceived', response.payloadData.length)
 
     try {
       const data = JSON.parse(response.payloadData.substring(0, response.payloadData.length - 1))
@@ -116,7 +117,7 @@ async function fetchTrainsData() {
 
       }
       else {
-        console.log('Not a train data')
+        logger.log('Not a train data')
       }
 
       if (resolveReturnPromise && navigationFinished && processedTrains) {
@@ -126,12 +127,12 @@ async function fetchTrainsData() {
 
         resolveReturnPromise(processedTrainsCount);
 
-        console.log('Gentle close')
+        logger.log('Gentle close')
       }
 
     } catch (error) {
-      console.error('Error parsing JSON:', error)
-      console.log('Received data was:', response.payloadData)
+      logger.error('Error parsing JSON:', error)
+      logger.log('Received data was:', response.payloadData)
     }
   })
 
@@ -142,7 +143,7 @@ async function fetchTrainsData() {
   });
 
 
-  console.log('Navigating to page');
+  logger.log('Navigating to page');
 
   await page.goto('https://portalpasazera.pl/MapaPociagow', {
     waitUntil: 'networkidle0',
@@ -151,7 +152,7 @@ async function fetchTrainsData() {
 
   navigationFinished = true;
 
-  console.log('Page loaded');
+  logger.log('Page loaded');
 
   return new Promise(resolve => {
     resolveReturnPromise = resolve;
