@@ -145,10 +145,7 @@ async function fetchTrainsData() {
 
   logger.log('Navigating to page');
 
-  await page.goto('https://portalpasazera.pl/MapaPociagow', {
-    waitUntil: 'networkidle0',
-    timeout: 30000
-  });
+  await page.goto('https://portalpasazera.pl/MapaPociagow');
 
   navigationFinished = true;
 
