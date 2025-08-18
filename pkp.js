@@ -101,8 +101,8 @@ async function fetchTrainsData() {
 
     await browser.close();
 
-    resolveReturnPromise(processedTrainsCount);
-  }, 20000);
+    resolveReturnPromise?.(processedTrainsCount);
+  }, 30000);
 
   client.on('Network.webSocketFrameReceived', async ({ response }) => {
     logger.log('Network.webSocketFrameReceived', response.payloadData.length)
