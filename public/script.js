@@ -99,11 +99,8 @@ document.addEventListener('DOMContentLoaded', function () {
         minute: '2-digit',
         hour12: false
       });
-      const dateString = date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-      label.textContent = `${timeString}\n${dateString}`;
+
+      label.textContent = `${timeString} (${entry.delay2} / ${entry.delay1} / ${entry.delay0})`;
       chartLabelsElement.appendChild(label);
     });
   }

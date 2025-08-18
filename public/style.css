@@ -106,7 +106,6 @@ main {
 .chart {
   display: flex;
   align-items: flex-end;
-  justify-content: space-around;
   height: 400px;
   background: white;
   border: 1px solid #ddd;
@@ -140,15 +139,16 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 60px;
-  margin: 0 5px;
+  min-width: 12px;
+  margin: 0 2px;
+  z-index: 0;
 }
 
 .bar-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 40px;
+  width: 12px;
   transition: transform 0.3s ease;
 }
 
@@ -192,19 +192,17 @@ main {
 
 .chart-labels {
   display: flex;
-  justify-content: space-around;
   padding: 0 1rem;
   overflow-x: auto;
 }
 
 .chart-label {
-  font-size: 0.8rem;
+  font-size: 0.6rem;
   color: #666;
-  text-align: center;
-  min-width: 70px;
-  transform: rotate(-45deg);
+  min-width: 14px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
   transform-origin: center;
-  margin-top: 1rem;
 }
 
 /* Stats Section */
