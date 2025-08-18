@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Train Delay Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>Train Delay Dashboard</h1>
+      <p>Real-time visualization of train delays (Last 24 Hours)</p>
+    </header>
+
+    <main>
+      <section class="recent-stats-section">
+        <h2>Latest Reading</h2>
+        <div class="recent-stats-header">
+          <span class="recent-timestamp" id="recent-timestamp">-</span>
+        </div>
+        <div class="stats-grid" id="recent-stats-grid">
+          <div class="stat-card recent">
+            <span class="stat-value" id="recent-on-time">-</span>
+            <span class="stat-label">On Time</span>
+            <div class="stat-indicator delay-0"></div>
+          </div>
+          <div class="stat-card recent">
+            <span class="stat-value" id="recent-minor-delay">-</span>
+            <span class="stat-label">Minor Delays</span>
+            <div class="stat-indicator delay-1"></div>
+          </div>
+          <div class="stat-card recent">
+            <span class="stat-value" id="recent-major-delay">-</span>
+            <span class="stat-label">Major Delays</span>
+            <div class="stat-indicator delay-2"></div>
+          </div>
+          <div class="stat-card recent">
+            <span class="stat-value" id="recent-total-trains">-</span>
+            <span class="stat-label">Total Trains</span>
+          </div>
+          <div class="stat-card recent">
+            <span class="stat-value" id="recent-delay-percent">-</span>
+            <span class="stat-label">Delay %</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Delay Distribution</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color delay-0"></span>
+              <span>On Time (delay0)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-1"></span>
+              <span>Minor Delay (delay1)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-2"></span>
+              <span>Major Delay (delay2)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <div id="chart" class="chart">
+            <div class="loading">Loading train data...</div>
+          </div>
+          <div class="chart-labels" id="chart-labels"></div>
+        </div>
+      </section>
+
+      <section class="stats-section">
+        <h2>Overall Statistics (24h)</h2>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="total-entries">-</span>
+            <span class="stat-label">Data Points</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="avg-delay">-</span>
+            <span class="stat-label">Avg Delay %</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="total-trains">-</span>
+            <span class="stat-label">Avg Trains</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>&copy; 2024 Train Delay Dashboard</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
