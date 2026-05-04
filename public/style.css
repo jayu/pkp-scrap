@@ -205,6 +205,47 @@ main {
   transform-origin: center;
 }
 
+/* Monthly charts grid (12 mini-charts, one per month) */
+.monthly-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  position: relative;
+  min-height: 60px;
+}
+
+.monthly-chart-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.monthly-chart-card h3 {
+  font-size: 1rem;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.chart.mini {
+  height: 200px;
+  padding: 1rem 0.5rem 0.5rem;
+}
+
+.chart.mini .chart-bar {
+  min-width: 8px;
+  margin: 0 1px;
+}
+
+.chart.mini .bar-stack {
+  width: 8px;
+}
+
+.monthly-chart-card .chart-label {
+  font-size: 0.55rem;
+  min-width: 10px;
+}
+
 /* Stats Section */
 .stats-section {
   background: #f8f9fa;

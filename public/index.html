@@ -48,6 +48,24 @@
         </div>
       </section>
 
+      <section class="stats-section">
+        <h2>Overall Statistics (24h)</h2>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="total-entries">-</span>
+            <span class="stat-label">Data Points</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="avg-delay">-</span>
+            <span class="stat-label">Avg Delay %</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="total-trains">-</span>
+            <span class="stat-label">Avg Trains</span>
+          </div>
+        </div>
+      </section>
+
       <section class="chart-section">
         <div class="chart-header">
           <h2>Delay Distribution</h2>
@@ -75,21 +93,147 @@
         </div>
       </section>
 
-      <section class="stats-section">
-        <h2>Overall Statistics (24h)</h2>
-        <div class="stats-grid" id="stats-grid">
-          <div class="stat-card">
-            <span class="stat-value" id="total-entries">-</span>
-            <span class="stat-label">Data Points</span>
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Last 12 Months (monthly average)</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color delay-0"></span>
+              <span>On Time (delay0)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-1"></span>
+              <span>Minor Delay (delay1)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-2"></span>
+              <span>Major Delay (delay2)</span>
+            </div>
           </div>
-          <div class="stat-card">
-            <span class="stat-value" id="avg-delay">-</span>
-            <span class="stat-label">Avg Delay %</span>
+        </div>
+
+        <div class="chart-container">
+          <div id="yearly-chart" class="chart">
+            <div class="loading">Loading yearly data...</div>
           </div>
-          <div class="stat-card">
-            <span class="stat-value" id="total-trains">-</span>
-            <span class="stat-label">Avg Trains</span>
+          <div class="chart-labels" id="yearly-chart-labels"></div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Worst Day per Month (most delayed trains)</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color delay-0"></span>
+              <span>On Time (delay0)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-1"></span>
+              <span>Minor Delay (delay1)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-2"></span>
+              <span>Major Delay (delay2)</span>
+            </div>
           </div>
+        </div>
+
+        <div class="chart-container">
+          <div id="worst-chart" class="chart">
+            <div class="loading">Loading worst-day data...</div>
+          </div>
+          <div class="chart-labels" id="worst-chart-labels"></div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Best Day per Month (fewest delayed trains)</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color delay-0"></span>
+              <span>On Time (delay0)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-1"></span>
+              <span>Minor Delay (delay1)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-2"></span>
+              <span>Major Delay (delay2)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <div id="best-chart" class="chart">
+            <div class="loading">Loading best-day data...</div>
+          </div>
+          <div class="chart-labels" id="best-chart-labels"></div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Daily Breakdown by Month (last 12 months)</h2>
+        </div>
+        <div id="monthly-charts" class="monthly-charts-grid">
+          <div class="loading">Loading monthly data...</div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Average by Weekday (4-hour bands, whole dataset)</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color delay-0"></span>
+              <span>On Time (delay0)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-1"></span>
+              <span>Minor Delay (delay1)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-2"></span>
+              <span>Major Delay (delay2)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <div id="weekday-chart" class="chart">
+            <div class="loading">Loading weekday data...</div>
+          </div>
+          <div class="chart-labels" id="weekday-chart-labels"></div>
+        </div>
+      </section>
+
+      <section class="chart-section">
+        <div class="chart-header">
+          <h2>Average by Hour of Day (whole dataset)</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color delay-0"></span>
+              <span>On Time (delay0)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-1"></span>
+              <span>Minor Delay (delay1)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color delay-2"></span>
+              <span>Major Delay (delay2)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <div id="hourly-chart" class="chart">
+            <div class="loading">Loading hourly data...</div>
+          </div>
+          <div class="chart-labels" id="hourly-chart-labels"></div>
         </div>
       </section>
     </main>

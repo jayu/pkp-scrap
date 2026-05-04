@@ -19,18 +19,159 @@ const mimeTypes = {
   '.ico': 'image/x-icon'
 };
 
-const server = http.createServer((req, res) => {
-  // Parse the URL and remove query parameters
-  let filePath = req.url.split('?')[0];
+function loadAllData() {
+  const dataPath = path.join(__dirname, 'data.json');
+  const rawData = fs.readFileSync(dataPath, 'utf8');
+  return JSON.parse(rawData);
+}
 
-  // API endpoint for train data
+function averageEntries(entries) {
+  const n = entries.length;
+  if (n === 0) {
+    return { delay0: 0, delay1: 0, delay2: 0, trainsCount: 0, delayPercent: 0, sampleCount: 0 };
+  }
+  const sum = entries.reduce((acc, e) => ({
+    delay0: acc.delay0 + e.delay0,
+    delay1: acc.delay1 + e.delay1,
+    delay2: acc.delay2 + e.delay2,
+    trainsCount: acc.trainsCount + e.trainsCount,
+    delayPercent: acc.delayPercent + e.delayPercent
+  }), { delay0: 0, delay1: 0, delay2: 0, trainsCount: 0, delayPercent: 0 });
+  return {
+    delay0: Math.round(sum.delay0 / n),
+    delay1: Math.round(sum.delay1 / n),
+    delay2: Math.round(sum.delay2 / n),
+    trainsCount: Math.round(sum.trainsCount / n),
+    delayPercent: sum.delayPercent / n,
+    sampleCount: n
+  };
+}
+
+function aggregateBucket(timeStamp, entries) {
+  return { timeStamp, ...averageEntries(entries) };
+}
+
+// Returns 42 entries: 7 days (Mon-first) x six 4-hour buckets per day.
+function getWeekdayStats(allData) {
+  const buckets = [];
+  for (let day = 0; day < 7; day++) {
+    for (let hourFrom = 0; hourFrom < 24; hourFrom += 4) {
+      buckets.push({ dayOfWeek: day, hourFrom, hourTo: hourFrom + 4, entries: [] });
+    }
+  }
+  for (const entry of allData) {
+    const d = new Date(entry.timeStamp);
+    const monFirstDay = (d.getDay() + 6) % 7;
+    const hourBucket = Math.floor(d.getHours() / 4) * 4;
+    const bucket = buckets.find(b => b.dayOfWeek === monFirstDay && b.hourFrom === hourBucket);
+    if (bucket) bucket.entries.push(entry);
+  }
+  return buckets.map(b => ({
+    dayOfWeek: b.dayOfWeek,
+    hourFrom: b.hourFrom,
+    hourTo: b.hourTo,
+    ...averageEntries(b.entries)
+  }));
+}
+
+// Returns 24 entries averaged by hour-of-day.
+function getHourlyStats(allData) {
+  const buckets = [];
+  for (let hour = 0; hour < 24; hour++) buckets.push({ hour, entries: [] });
+  for (const entry of allData) {
+    const d = new Date(entry.timeStamp);
+    buckets[d.getHours()].entries.push(entry);
+  }
+  return buckets.map(b => ({ hour: b.hour, ...averageEntries(b.entries) }));
+}
+
+function getYearlyStats(allData) {
+  const now = new Date();
+  const buckets = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({ year: d.getFullYear(), month: d.getMonth(), timeStamp: d.getTime(), entries: [] });
+  }
+  for (const entry of allData) {
+    const d = new Date(entry.timeStamp);
+    const bucket = buckets.find(b => b.year === d.getFullYear() && b.month === d.getMonth());
+    if (bucket) bucket.entries.push(entry);
+  }
+  return buckets.map(b => aggregateBucket(b.timeStamp, b.entries));
+}
+
+function getMonthlyExtremes(allData) {
+  const now = new Date();
+  const buckets = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({ year: d.getFullYear(), month: d.getMonth(), monthStart: d.getTime(), entries: [] });
+  }
+  const filtered = allData.filter(e => e.trainsCount >= 100);
+  for (const entry of filtered) {
+    const d = new Date(entry.timeStamp);
+    const bucket = buckets.find(b => b.year === d.getFullYear() && b.month === d.getMonth());
+    if (bucket) bucket.entries.push(entry);
+  }
+  const emptyFor = (b) => ({ timeStamp: b.monthStart, delay0: 0, delay1: 0, delay2: 0, trainsCount: 0, delayPercent: 0 });
+  const best = [];
+  const worst = [];
+  for (const b of buckets) {
+    if (b.entries.length === 0) {
+      best.push(emptyFor(b));
+      worst.push(emptyFor(b));
+      continue;
+    }
+    let bestEntry = b.entries[0];
+    let worstEntry = b.entries[0];
+    let minDelays = bestEntry.delay1 + bestEntry.delay2;
+    let maxDelays = worstEntry.delay1 + worstEntry.delay2;
+    for (const e of b.entries) {
+      const sum = e.delay1 + e.delay2;
+      if (sum < minDelays) { minDelays = sum; bestEntry = e; }
+      if (sum > maxDelays) { maxDelays = sum; worstEntry = e; }
+    }
+    best.push(bestEntry);
+    worst.push(worstEntry);
+  }
+  return { best, worst };
+}
+
+function getMonthlyDailyStats(allData, year, month) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const buckets = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    buckets.push({ day, timeStamp: new Date(year, month, day).getTime(), entries: [] });
+  }
+  for (const entry of allData) {
+    const d = new Date(entry.timeStamp);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const bucket = buckets.find(b => b.day === d.getDate());
+      if (bucket) bucket.entries.push(entry);
+    }
+  }
+  return buckets.map(b => aggregateBucket(b.timeStamp, b.entries));
+}
+
+function parseYearMonth(str) {
+  const match = /^(\d{4})-(\d{2})$/.exec(str || '');
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1;
+  if (month < 0 || month > 11) return null;
+  return { year, month };
+}
+
+const server = http.createServer((req, res) => {
+  // Parse the URL — keep query for endpoints that need it
+  const urlParts = req.url.split('?');
+  let filePath = urlParts[0];
+  const query = new URLSearchParams(urlParts[1] || '');
+
+  // API endpoint for train data (last 24 hours)
   if (filePath === '/api/trains') {
     try {
-      const dataPath = path.join(__dirname, 'data.json');
-      const rawData = fs.readFileSync(dataPath, 'utf8');
-      const allData = JSON.parse(rawData);
-
-      // Filter data from last 24 hours
+      const allData = loadAllData();
       const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
       const recentData = allData.filter(entry => entry.timeStamp >= twentyFourHoursAgo);
 
@@ -40,6 +181,83 @@ const server = http.createServer((req, res) => {
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to load train data' }));
+      return;
+    }
+  }
+
+  // API endpoint: monthly averages for the last 12 months
+  if (filePath === '/api/trains/yearly') {
+    try {
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getYearlyStats(allData)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load yearly stats' }));
+      return;
+    }
+  }
+
+  // API endpoint: averages by weekday + 4-hour band (whole dataset)
+  if (filePath === '/api/trains/weekday') {
+    try {
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getWeekdayStats(allData)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load weekday stats' }));
+      return;
+    }
+  }
+
+  // API endpoint: averages by hour-of-day (whole dataset)
+  if (filePath === '/api/trains/hourly') {
+    try {
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getHourlyStats(allData)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load hourly stats' }));
+      return;
+    }
+  }
+
+  // API endpoint: best + worst day per month for the last 12 months
+  // (filters out incomplete data points with trainsCount < 100)
+  if (filePath === '/api/trains/yearly/extremes') {
+    try {
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getMonthlyExtremes(allData)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load monthly extremes' }));
+      return;
+    }
+  }
+
+  // API endpoint: daily averages for a given month (?month=YYYY-MM)
+  if (filePath === '/api/trains/monthly') {
+    try {
+      const ym = parseYearMonth(query.get('month'));
+      if (!ym) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid or missing "month" query parameter (expected YYYY-MM)' }));
+        return;
+      }
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getMonthlyDailyStats(allData, ym.year, ym.month)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load monthly stats' }));
       return;
     }
   }
