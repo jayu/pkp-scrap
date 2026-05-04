@@ -82,7 +82,8 @@ async function processTrains(anonymizedTrainsArray) {
 
 async function fetchTrainsData() {
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox']
+    args: ['--no-sandbox', '--ignore-certificate-errors'],
+    ignoreHTTPSErrors: true
   });
 
   const page = await browser.newPage();
