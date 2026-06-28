@@ -21,7 +21,7 @@ const mimeTypes = {
 
 // Minimum trains in a single reading for it to be considered reliable enough
 // to represent a day's extreme (filters out partial/incomplete scrapes).
-const MIN_RELIABLE_TRAINS = 100;
+const MIN_RELIABLE_TRAINS = 150;
 
 function loadAllData() {
   const dataPath = path.join(__dirname, 'data.json');
