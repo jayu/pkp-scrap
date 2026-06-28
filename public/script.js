@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const yearlyChartElement = document.getElementById('yearly-chart');
   const yearlyChartLabelsElement = document.getElementById('yearly-chart-labels');
   const monthlyChartsElement = document.getElementById('monthly-charts');
+  const worstMonthlyChartsElement = document.getElementById('worst-monthly-charts');
   const bestChartElement = document.getElementById('best-chart');
   const bestChartLabelsElement = document.getElementById('best-chart-labels');
   const worstChartElement = document.getElementById('worst-chart');
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const weekdayChartLabelsElement = document.getElementById('weekday-chart-labels');
   const hourlyChartElement = document.getElementById('hourly-chart');
   const hourlyChartLabelsElement = document.getElementById('hourly-chart-labels');
+  const weeklyWorstTableElement = document.getElementById('weekly-worst-table');
 
   // Recent stats elements
   const recentTimestampElement = document.getElementById('recent-timestamp');
@@ -184,6 +186,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       renderChart(yearlyChartElement, yearlyChartLabelsElement, yearlyData, formatMonthLabel, 300);
       renderMonthlyCharts(yearlyData);
+      renderWorstMonthlyCharts(yearlyData);
     } catch (error) {
       console.error('❌ Error loading yearly data:', error);
       yearlyChartElement.innerHTML = '<div class="loading">Error loading yearly data.</div>';
@@ -223,6 +226,72 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  // Format a week's Monday timestamp as a "12 May – 18 May 2026" range.
+  function formatWeekRange(weekStart) {
+    const start = new Date(weekStart);
+    const end = new Date(weekStart);
+    end.setDate(end.getDate() + 6);
+    const startStr = `${start.getDate()} ${MONTH_NAMES[start.getMonth()]}`;
+    const endStr = `${end.getDate()} ${MONTH_NAMES[end.getMonth()]} ${end.getFullYear()}`;
+    return `${startStr} – ${endStr}`;
+  }
+
+  // Render the worst-reading-per-week table. The week with the highest overall
+  // delay percentage is highlighted so the worst week stands out.
+  function renderWeeklyWorstTable(weeks) {
+    if (!weeks || weeks.length === 0) {
+      weeklyWorstTableElement.innerHTML = '<div class="loading">No data</div>';
+      return;
+    }
+
+    const maxDelayPercent = Math.max(...weeks.map(w => w.delayPercent));
+
+    const header = `
+      <thead>
+        <tr>
+          <th>Week (Mon–Sun)</th>
+          <th>Delayed %</th>
+          <th>Major %</th>
+          <th>Minor %</th>
+          <th>Trains</th>
+          <th>Worst reading at</th>
+        </tr>
+      </thead>`;
+
+    const rows = weeks.map(w => {
+      const readingDate = new Date(w.timeStamp);
+      const readingStr = `${pad2(readingDate.getDate())}-${pad2(readingDate.getMonth() + 1)} ${pad2(readingDate.getHours())}:${pad2(readingDate.getMinutes())}`;
+      const isWorst = w.delayPercent === maxDelayPercent;
+      return `
+        <tr class="${isWorst ? 'worst-week' : ''}">
+          <td>${formatWeekRange(w.weekStart)}</td>
+          <td>${w.delayPercent.toFixed(1)}%</td>
+          <td>${w.majorPercent.toFixed(1)}%</td>
+          <td>${w.minorPercent.toFixed(1)}%</td>
+          <td>${formatNumber(w.trainsCount)}</td>
+          <td>${readingStr}</td>
+        </tr>`;
+    }).join('');
+
+    weeklyWorstTableElement.innerHTML = `<table class="data-table">${header}<tbody>${rows}</tbody></table>`;
+  }
+
+  // Fetch and render worst-reading-per-week table (whole dataset)
+  async function loadWeeklyWorst() {
+    try {
+      const response = await fetch('/api/trains/weekly/worst');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const weeks = await response.json();
+      console.log('📆 Loaded weekly worst data:', weeks);
+      renderWeeklyWorstTable(weeks);
+    } catch (error) {
+      console.error('❌ Error loading weekly worst data:', error);
+      weeklyWorstTableElement.innerHTML = '<div class="loading">Error loading weekly data.</div>';
+    }
+  }
+
   // Fetch and render best/worst-day-per-month charts
   async function loadMonthlyExtremes() {
     try {
@@ -241,15 +310,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Build a card per month and fetch its daily data
-  function renderMonthlyCharts(yearlyData) {
-    monthlyChartsElement.innerHTML = '';
+  // Build one mini daily chart card per month, fetching each month's data from
+  // the given endpoint (which must accept a ?month=YYYY-MM query parameter).
+  function renderMonthlyCardGrid(containerEl, yearlyData, endpoint) {
+    containerEl.innerHTML = '';
 
     const months = yearlyData.map(entry => {
       const date = new Date(entry.timeStamp);
       return {
-        year: date.getFullYear(),
-        month: date.getMonth(),
         title: `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`,
         key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
       };
@@ -276,9 +344,9 @@ document.addEventListener('DOMContentLoaded', function () {
       chartContainer.appendChild(chart);
       chartContainer.appendChild(labels);
       card.appendChild(chartContainer);
-      monthlyChartsElement.appendChild(card);
+      containerEl.appendChild(card);
 
-      fetch(`/api/trains/monthly?month=${key}`)
+      fetch(`${endpoint}?month=${key}`)
         .then(res => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.json();
@@ -287,10 +355,20 @@ document.addEventListener('DOMContentLoaded', function () {
           renderChart(chart, labels, daily, formatDayLabel, 140);
         })
         .catch(err => {
-          console.error(`❌ Error loading ${key}:`, err);
+          console.error(`❌ Error loading ${endpoint} ${key}:`, err);
           chart.innerHTML = '<div class="loading">Error</div>';
         });
     });
+  }
+
+  // Daily average per month
+  function renderMonthlyCharts(yearlyData) {
+    renderMonthlyCardGrid(monthlyChartsElement, yearlyData, '/api/trains/monthly');
+  }
+
+  // Worst single reading per day per month (highest delay %, reliable readings only)
+  function renderWorstMonthlyCharts(yearlyData) {
+    renderMonthlyCardGrid(worstMonthlyChartsElement, yearlyData, '/api/trains/monthly/worst');
   }
 
   // Update statistics
@@ -342,11 +420,13 @@ document.addEventListener('DOMContentLoaded', function () {
   loadMonthlyExtremes();
   loadWeekdayData();
   loadHourlyData();
+  loadWeeklyWorst();
 
   // Auto-refresh every 5 minutes
   setInterval(loadTrainData, 5 * 60 * 1000);
   setInterval(loadYearlyData, 30 * 60 * 1000);
   setInterval(loadMonthlyExtremes, 30 * 60 * 1000);
+  setInterval(loadWeeklyWorst, 30 * 60 * 1000);
 
   console.log('📈 Chart rendering system initialized');
 });

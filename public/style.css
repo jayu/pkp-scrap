@@ -398,3 +398,45 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+/* Weekly worst-reading table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.6rem 0.8rem;
+  text-align: right;
+  border-bottom: 1px solid #eee;
+}
+
+.data-table th:first-child,
+.data-table td:first-child {
+  text-align: left;
+}
+
+.data-table th {
+  background: #667eea;
+  color: white;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.data-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.data-table tr.worst-week {
+  background: #fdecea;
+  font-weight: 700;
+}
+
+.data-table tr.worst-week:hover {
+  background: #fbddd9;
+}

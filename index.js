@@ -19,6 +19,10 @@ const mimeTypes = {
   '.ico': 'image/x-icon'
 };
 
+// Minimum trains in a single reading for it to be considered reliable enough
+// to represent a day's extreme (filters out partial/incomplete scrapes).
+const MIN_RELIABLE_TRAINS = 100;
+
 function loadAllData() {
   const dataPath = path.join(__dirname, 'data.json');
   const rawData = fs.readFileSync(dataPath, 'utf8');
@@ -107,7 +111,7 @@ function getMonthlyExtremes(allData) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     buckets.push({ year: d.getFullYear(), month: d.getMonth(), monthStart: d.getTime(), entries: [] });
   }
-  const filtered = allData.filter(e => e.trainsCount >= 100);
+  const filtered = allData.filter(e => e.trainsCount >= MIN_RELIABLE_TRAINS);
   for (const entry of filtered) {
     const d = new Date(entry.timeStamp);
     const bucket = buckets.find(b => b.year === d.getFullYear() && b.month === d.getMonth());
@@ -151,6 +155,82 @@ function getMonthlyDailyStats(allData, year, month) {
     }
   }
   return buckets.map(b => aggregateBucket(b.timeStamp, b.entries));
+}
+
+// Like getMonthlyDailyStats, but instead of averaging a day's readings it picks
+// the single worst reading — the one with the highest delay percentage — among
+// readings with enough trains to be reliable (>= MIN_RELIABLE_TRAINS). This
+// avoids tiny samples (e.g. 4 of 5 trains delayed = 80%) winning the day.
+function getMonthlyDailyWorst(allData, year, month) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const buckets = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    buckets.push({ day, timeStamp: new Date(year, month, day).getTime(), entries: [] });
+  }
+  for (const entry of allData) {
+    const d = new Date(entry.timeStamp);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const bucket = buckets.find(b => b.day === d.getDate());
+      if (bucket) bucket.entries.push(entry);
+    }
+  }
+  return buckets.map(b => {
+    const reliable = b.entries.filter(e => e.trainsCount >= MIN_RELIABLE_TRAINS);
+    if (reliable.length === 0) {
+      return { timeStamp: b.timeStamp, delay0: 0, delay1: 0, delay2: 0, trainsCount: 0, delayPercent: 0, sampleCount: 0 };
+    }
+    let worst = reliable[0];
+    for (const e of reliable) {
+      if (e.delayPercent > worst.delayPercent) worst = e;
+    }
+    return {
+      timeStamp: worst.timeStamp,
+      delay0: worst.delay0,
+      delay1: worst.delay1,
+      delay2: worst.delay2,
+      trainsCount: worst.trainsCount,
+      delayPercent: worst.delayPercent,
+      sampleCount: reliable.length
+    };
+  });
+}
+
+// Monday 00:00 (local time) of the week containing `date`.
+function startOfWeek(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay(); // 0=Sun..6=Sat
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return d;
+}
+
+// One row per ISO-style week (Mon-Sun) across the whole dataset. Each row is the
+// single worst reading of that week — the one with the highest delay percentage —
+// among reliable readings (trainsCount >= MIN_RELIABLE_TRAINS). Major and minor
+// delay percentages are reported separately alongside the combined total.
+// Sorted oldest week first.
+function getWeeklyWorst(allData) {
+  const weeks = new Map();
+  for (const entry of allData) {
+    if (entry.trainsCount < MIN_RELIABLE_TRAINS) continue;
+    const weekStart = startOfWeek(new Date(entry.timeStamp)).getTime();
+    const current = weeks.get(weekStart);
+    if (!current || entry.delayPercent > current.delayPercent) {
+      weeks.set(weekStart, entry);
+    }
+  }
+  return [...weeks.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([weekStart, e]) => ({
+      weekStart,
+      timeStamp: e.timeStamp,
+      trainsCount: e.trainsCount,
+      delay0: e.delay0,
+      delay1: e.delay1,
+      delay2: e.delay2,
+      delayPercent: (e.delay1 + e.delay2) / e.trainsCount * 100,
+      majorPercent: e.delay2 / e.trainsCount * 100,
+      minorPercent: e.delay1 / e.trainsCount * 100
+    }));
 }
 
 function parseYearMonth(str) {
@@ -258,6 +338,43 @@ const server = http.createServer((req, res) => {
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to load monthly stats' }));
+      return;
+    }
+  }
+
+  // API endpoint: worst daily reading for a given month (?month=YYYY-MM)
+  // Per day, the reading with the highest delay % among reliable readings
+  // (trainsCount >= MIN_RELIABLE_TRAINS).
+  if (filePath === '/api/trains/monthly/worst') {
+    try {
+      const ym = parseYearMonth(query.get('month'));
+      if (!ym) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid or missing "month" query parameter (expected YYYY-MM)' }));
+        return;
+      }
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getMonthlyDailyWorst(allData, ym.year, ym.month)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load monthly worst stats' }));
+      return;
+    }
+  }
+
+  // API endpoint: worst reading per week (Mon-Sun) across the whole dataset
+  // (reliable readings only, trainsCount >= MIN_RELIABLE_TRAINS)
+  if (filePath === '/api/trains/weekly/worst') {
+    try {
+      const allData = loadAllData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getWeeklyWorst(allData)));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load weekly worst stats' }));
       return;
     }
   }
